@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake Game</title>
+<style>
+  body {
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    color: #fff;
+    font-family: monospace;
+    margin: 0;
+  }
+  canvas {
+    background: #000;
+    border: 3px solid #0f0;
+    box-shadow: 0 0 20px #0f0;
+    display: none;
+  }
+  #score {
+    margin-top: 10px;
+    font-size: 22px;
+    display: none;
+  }
+  #message {
+    font-size: 26px;
+    color: #0f0;
+    margin-top: 15px;
+  }
+  button {
+    background: #0f0;
+    color: #000;
+    border: none;
+    padding: 10px 25px;
+    font-size: 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: 0.2s;
+  }
+  button:hover {
+    background: #4f4;
+    transform: scale(1.05);
+  }
+</style>
+</head>
+<body>
+  <h1>🐍 Snake Game</h1>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div id="score">Score: 0</div>
+  <div id="message"></div>
+  <button id="playBtn">▶ Play</button>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('score');
+    const msgDisplay = document.getElementById('message');
+    const playBtn = document.getElementById('playBtn');
+
+    const gridSize = 20;
+    const tileCount = canvas.width / gridSize;
+
+    let snake, apple, vx, vy, score, running, frame, speed, confetti = [];
+
+    function initGame() {
+      const start = Math.floor(tileCount / 2);
+      // 🟩 Start snake with two blocks horizontally centered
+      snake = [
+        { x: start, y: start },
+        { x: start - 1, y: start }
+      ];
+      apple = {
+        x: Math.floor(Math.random() * tileCount),
+        y: Math.floor(Math.random() * tileCount)
+      };
+      vx = 1; // 👉 Start moving right automatically
+      vy = 0;
+      score = 0;
+      running = true;
+      frame = 0;
+      speed = 5;
+      confetti = [];
+      scoreDisplay.textContent = "Score: 0";
+      msgDisplay.textContent = "";
+      canvas.style.display = "block";
+      scoreDisplay.style.display = "block";
+      playBtn.style.display = "none";
+    }
+
+    function createConfetti() {
+      for (let i = 0; i < 200; i++) {
+        confetti.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height - canvas.height,
+          r: Math.random() * 4 + 2,
+          c: `hsl(${Math.random() * 360}, 100%, 50%)`,
+          s: Math.random() * 2 + 1
+        });
+      }
+    }
+
+    function drawConfetti() {
+      for (let c of confetti) {
+        ctx.beginPath();
+        ctx.fillStyle = c.c;
+        ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+        ctx.fill();
+        c.y += c.s;
+        if (c.y > canvas.height) c.y = -10;
+      }
+    }
+
+    function gameOver(message) {
+      running = false;
+      msgDisplay.textContent = message;
+      playBtn.textContent = "🔁 Restart";
+      playBtn.style.display = "block";
+    }
+
+    function gameLoop() {
+      requestAnimationFrame(gameLoop);
+      if (!running) return;
+
+      if (++frame < speed) return;
+      frame = 0;
+
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const head = { x: snake[0].x + vx, y: snake[0].y + vy };
+
+      // Die on wall
+      if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+        gameOver("💀 Game Over! Hit a wall.");
+        return;
+      }
+
+      // Die on self collision
+      for (let s of snake) {
+        if (s.x === head.x && s.y === head.y) {
+          gameOver("💀 Game Over! You ate yourself.");
+          return;
+        }
+      }
+
+      snake.unshift(head);
+
+      // Eat apple
+      if (head.x === apple.x && head.y === apple.y) {
+        score++;
+        scoreDisplay.textContent = "Score: " + score;
+
+        // Win condition
+        if (score >= 100) {
+          running = false;
+          msgDisplay.textContent = "🎉 You Win! 🎉";
+          createConfetti();
+          const confettiInterval = setInterval(() => {
+            ctx.fillStyle = "rgba(0,0,0,0.2)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawConfetti();
+          }, 30);
+          return;
+        }
+
+        // New apple
+        apple.x = Math.floor(Math.random() * tileCount);
+        apple.y = Math.floor(Math.random() * tileCount);
+
+        // Speed up slightly
+        speed = Math.max(1, speed * 0.999);
+      } else {
+        snake.pop();
+      }
+
+      // Draw apple
+      ctx.fillStyle = "red";
+      ctx.fillRect(apple.x * gridSize, apple.y * gridSize, gridSize - 2, gridSize - 2);
+
+      // Draw snake
+      ctx.fillStyle = "lime";
+      for (let s of snake) {
+        ctx.fillRect(s.x * gridSize, s.y * gridSize, gridSize - 2, gridSize - 2);
+      }
+    }
+
+    // Controls (WASD + Arrow keys)
+    document.addEventListener('keydown', e => {
+      if ((e.key === 'ArrowLeft' || e.key === 'a') && vx === 0) { vx = -1; vy = 0; }
+      if ((e.key === 'ArrowUp' || e.key === 'w') && vy === 0) { vx = 0; vy = -1; }
+      if ((e.key === 'ArrowRight' || e.key === 'd') && vx === 0) { vx = 1; vy = 0; }
+      if ((e.key === 'ArrowDown' || e.key === 's') && vy === 0) { vx = 0; vy = 1; }
+    });
+
+    playBtn.addEventListener('click', () => initGame());
+    gameLoop();
+  </script>
+</body>
+</html>
